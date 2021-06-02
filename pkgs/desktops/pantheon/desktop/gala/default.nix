@@ -1,23 +1,45 @@
-{ stdenv, fetchFromGitHub, pantheon, pkgconfig, meson, python3, ninja, vala
-, desktop-file-utils, gettext, libxml2, gtk3, granite, libgee, bamf, libcanberra
-, libcanberra-gtk3, gnome-desktop, mutter, clutter, plank, elementary-icon-theme
-, elementary-settings-daemon, wrapGAppsHook }:
+{ lib, stdenv
+, fetchFromGitHub
+, nix-update-script
+, fetchpatch
+, pantheon
+, pkg-config
+, meson
+, python3
+, ninja
+, vala
+, desktop-file-utils
+, gettext
+, libxml2
+, gtk3
+, granite
+, libgee
+, bamf
+, libcanberra
+, libcanberra-gtk3
+, gnome-desktop
+, mutter
+, clutter
+, elementary-dock
+, elementary-icon-theme
+, elementary-settings-daemon
+, wrapGAppsHook
+}:
 
 stdenv.mkDerivation rec {
   pname = "gala";
-  version = "unstable-2019-05-31"; # Is tracking https://github.com/elementary/gala/commits/stable/juno
+  version = "3.3.2";
 
   src = fetchFromGitHub {
     owner = "elementary";
     repo = pname;
-    rev = "1024813560668152814a72fd93dc6a93b226eb04";
-    sha256 = "14kzf9vih3j492dssmlc5vbdw21n0h7v7sxlc1fc9givls4g5i83";
+    rev = version;
+    sha256 = "sha256-BOarHUEgWqQM6jmVMauJi0JnsM+jE45MnPNnAqz1qOE=";
   };
 
   passthru = {
-    updateScript = pantheon.updateScript {
-      repoName = pname;
-      versionPolicy = "master";
+    updateScript = nix-update-script {
+      attrPath = "pantheon.${pname}";
     };
   };
 
@@ -27,7 +49,7 @@ stdenv.mkDerivation rec {
     libxml2
     meson
     ninja
-    pkgconfig
+    pkg-config
     python3
     vala
     wrapGAppsHook
@@ -36,28 +58,38 @@ stdenv.mkDerivation rec {
   buildInputs = [
     bamf
     clutter
+    elementary-dock
     elementary-icon-theme
-    gnome-desktop
     elementary-settings-daemon
+    gnome-desktop
     granite
     gtk3
     libcanberra
     libcanberra-gtk3
     libgee
     mutter
-    plank
   ];
 
-  patches = [ ./plugins-dir.patch ];
+  patches = [
+    # https://github.com/elementary/gala/pull/869
+    # build failure in vala 0.48.7
+    # https://github.com/elementary/gala/pull/869#issuecomment-657147695
+    (fetchpatch {
+      url = "https://github.com/elementary/gala/commit/85d290c75eaa147b704ad34e6c67498071707ee8.patch";
+      sha256 = "19jkvmxidf453qfrxkvi35igxzfz2cm8srwkabvyn9wyd1yhiw0l";
+    })
+    ./plugins-dir.patch
+    ./use-new-notifications-default.patch
+  ];
 
   postPatch = ''
     chmod +x build-aux/meson/post_install.py
     patchShebangs build-aux/meson/post_install.py
   '';
 
-  meta =  with stdenv.lib; {
+  meta =  with lib; {
     description = "A window & compositing manager based on mutter and designed by elementary for use with Pantheon";
-    homepage = https://github.com/elementary/gala;
+    homepage = "https://github.com/elementary/gala";
     license = licenses.gpl3Plus;
     platforms = platforms.linux;
     maintainers = pantheon.maintainers;

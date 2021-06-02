@@ -1,68 +1,70 @@
-{stdenv
-, removeReferencesTo
-, lib
-, fetchFromGitHub
-, utillinux
+{ lib
+, fetchurl
+, util-linux
+, gpgme
 , openssl
+, libuuid
 , coreutils
-, go
 , which
 , makeWrapper
+, cryptsetup
 , squashfsTools
 , buildGoPackage}:
 
 with lib;
 
 buildGoPackage rec {
-  name = "singularity-${version}";
-  version = "3.2.1";
+  pname = "singularity";
+  version = "3.7.4";
 
-  src = fetchFromGitHub {
-    owner = "sylabs";
-    repo = "singularity";
-    rev = "v${version}";
-    sha256 = "14lhxwy21s7q081x7kbnvkjsbxgsg2f181qlzmlxcn6n7gfav3kj";
+  src = fetchurl {
+    url = "https://github.com/hpcng/singularity/releases/download/v${version}/singularity-${version}.tar.gz";
+    sha256 = "sha256-wmY2movydH9E4HWYWMP8OyMluXWogYsmaPC5exJNAWQ=";
   };
 
   goPackagePath = "github.com/sylabs/singularity";
-  goDeps = ./deps.nix;
 
-  buildInputs = [ openssl ];
-  nativeBuildInputs = [ removeReferencesTo utillinux which makeWrapper ];
+  buildInputs = [ gpgme openssl libuuid ];
+  nativeBuildInputs = [ util-linux which makeWrapper cryptsetup ];
   propagatedBuildInputs = [ coreutils squashfsTools ];
+
+  postPatch = ''
+    substituteInPlace internal/pkg/build/files/copy.go \
+      --replace /bin/cp ${coreutils}/bin/cp
+  '';
 
   postConfigure = ''
     cd go/src/github.com/sylabs/singularity
 
     patchShebangs .
-    sed -i 's|defaultPath := "[^"]*"|defaultPath := "${stdenv.lib.makeBinPath propagatedBuildInputs}"|' cmd/internal/cli/actions.go
+    sed -i 's|defaultPath := "[^"]*"|defaultPath := "${lib.makeBinPath propagatedBuildInputs}"|' cmd/internal/cli/actions.go
 
-    ./mconfig -V ${version} -p $bin --localstatedir=/var
+    ./mconfig -V ${version} -p $out --localstatedir=/var
 
     # Don't install SUID binaries
     sed -i 's/-m 4755/-m 755/g' builddir/Makefile
-
   '';
 
   buildPhase = ''
+    runHook preBuild
     make -C builddir
+    runHook postBuild
   '';
 
   installPhase = ''
-    make -C builddir install LOCALSTATEDIR=$bin/var
-    chmod 755 $bin/libexec/singularity/bin/starter-suid
-    wrapProgram $bin/bin/singularity --prefix PATH : ${stdenv.lib.makeBinPath propagatedBuildInputs}
+    runHook preInstall
+    make -C builddir install LOCALSTATEDIR=$out/var
+    chmod 755 $out/libexec/singularity/bin/starter-suid
+
+    # Explicitly configure paths in the config file
+    sed -i 's|^# mksquashfs path =.*$|mksquashfs path = ${lib.makeBinPath [squashfsTools]}/mksquashfs|' $out/etc/singularity/singularity.conf
+    sed -i 's|^# cryptsetup path =.*$|cryptsetup path = ${lib.makeBinPath [cryptsetup]}/cryptsetup|' $out/etc/singularity/singularity.conf
+
+    runHook postInstall
   '';
 
-  postFixup = ''
-    find $bin/ -type f -executable -exec remove-references-to -t ${go} '{}' + || true
-
-    # These etc scripts shouldn't have their paths patched
-    cp etc/actions/* $bin/etc/singularity/actions/
-  '';
-
-  meta = with stdenv.lib; {
-    homepage = http://www.sylabs.io/;
+  meta = with lib; {
+    homepage = "http://www.sylabs.io/";
     description = "Application containers for linux";
     license = licenses.bsd3;
     platforms = platforms.linux;

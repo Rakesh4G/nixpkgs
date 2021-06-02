@@ -1,4 +1,4 @@
-{ stdenv
+{ lib, stdenv
 , fetchurl
 , makeDesktopItem
 
@@ -12,7 +12,7 @@
 , dbus-glib
 , fontconfig
 , freetype
-, gdk_pixbuf
+, gdk-pixbuf
 , glib
 , gtk3
 , libxcb
@@ -28,21 +28,23 @@
 , apulse
 
 # Media support (implies audio support)
-, mediaSupport ? false
+, mediaSupport ? true
 , ffmpeg
 
 , gmp
 
-# Pluggable transport dependencies
-, python27
-
 # Wrapper runtime
 , coreutils
 , glibcLocales
-, gnome3
+, gnome
 , runtimeShell
 , shared-mime-info
 , gsettings-desktop-schemas
+
+# Hardening
+, graphene-hardened-malloc
+# crashes with intel driver
+, useHardenedMalloc ? false
 
 # Whether to disable multiprocess support to work around crashing tabs
 # TODO: fix the underlying problem instead of this terrible work-around
@@ -50,12 +52,9 @@
 
 # Extra preferences
 , extraPrefs ? ""
-
-# For meta
-, tor-browser-bundle
 }:
 
-with stdenv.lib;
+with lib;
 
 let
   libPath = makeLibraryPath libPkgs;
@@ -67,7 +66,7 @@ let
     dbus-glib
     fontconfig
     freetype
-    gdk_pixbuf
+    gdk-pixbuf
     glib
     gtk3
     libxcb
@@ -89,34 +88,27 @@ let
   fteLibPath = makeLibraryPath [ stdenv.cc.cc gmp ];
 
   # Upstream source
-  version = "8.5.3";
+  version = "10.0.16";
 
   lang = "en-US";
 
   srcs = {
-    "x86_64-linux" = fetchurl {
-      urls = [
-        "https://github.com/TheTorProject/gettorbrowser/releases/download/v${version}/tor-browser-linux64-${version}_${lang}.tar.xz"
-        "https://dist.torproject.org/torbrowser/${version}/tor-browser-linux64-${version}_${lang}.tar.xz"
-      ];
-      sha256 = "15ml0azc7imlfc2h88yxpxsyrf6pxxcd1si33bfbsjh17zw1282g";
+    x86_64-linux = fetchurl {
+      url = "https://dist.torproject.org/torbrowser/${version}/tor-browser-linux64-${version}_${lang}.tar.xz";
+      sha256 = "07h2gd6cwwq17lrwjpfah1xvr8ny8700qvi971qacrr7ssicw2pw";
     };
 
-    "i686-linux" = fetchurl {
-      urls = [
-        "https://dist.torproject.org/torbrowser/${version}/tor-browser-linux32-${version}_${lang}.tar.xz"
-        "https://github.com/TheTorProject/gettorbrowser/releases/download/v${version}/tor-browser-linux32-${version}_${lang}.tar.xz"
-      ];
-      sha256 = "1zvcy44qx353qa5h90g0qigbp9xgaiq8s7a5wmhnfrfd2iw4ph7d";
+    i686-linux = fetchurl {
+      url = "https://dist.torproject.org/torbrowser/${version}/tor-browser-linux32-${version}_${lang}.tar.xz";
+      sha256 = "145kniiby5nnd0ll3v2gggzxz52bqbrdp72hvh96i8qnzi0fq25a";
     };
   };
 in
-
 stdenv.mkDerivation rec {
-  name = "tor-browser-bundle-bin-${version}";
+  pname = "tor-browser-bundle-bin";
   inherit version;
 
-  src = srcs."${stdenv.hostPlatform.system}" or (throw "unsupported system: ${stdenv.hostPlatform.system}");
+  src = srcs.${stdenv.hostPlatform.system} or (throw "unsupported system: ${stdenv.hostPlatform.system}");
 
   preferLocalBuild = true;
   allowSubstitutes = false;
@@ -138,7 +130,7 @@ stdenv.mkDerivation rec {
 
     # Unpack & enter
     mkdir -p "$TBB_IN_STORE"
-    tar xf "${src}" -C "$TBB_IN_STORE" --strip-components=2
+    tar xf "$src" -C "$TBB_IN_STORE" --strip-components=2
     pushd "$TBB_IN_STORE"
 
     # Set ELF interpreter
@@ -167,15 +159,12 @@ stdenv.mkDerivation rec {
     # interpreter for pre-compiled Go binaries by invoking the interpreter
     # directly.
     sed -i TorBrowser/Data/Tor/torrc-defaults \
-        -e "s|\(ClientTransportPlugin obfs2,obfs3,obfs4,scramblesuit\) exec|\1 exec $interp|" \
+        -e "s|\(ClientTransportPlugin meek_lite,obfs2,obfs3,obfs4,scramblesuit\) exec|\1 exec $interp|"
 
-    # Fixup fte transport
-    #
-    # Note: the script adds its dirname to search path automatically
-    sed -i TorBrowser/Tor/PluggableTransports/fteproxy.bin \
-        -e "s,/usr/bin/env python,${python27.interpreter},"
+    # Similarly fixup snowflake
+    sed -i TorBrowser/Data/Tor/torrc-defaults \
+        -e "s|\(ClientTransportPlugin snowflake\) exec|\1 exec $interp|"
 
-    patchelf --set-rpath "${fteLibPath}" TorBrowser/Tor/PluggableTransports/fte/cDFA.so
 
     # Prepare for autoconfig.
     #
@@ -239,8 +228,10 @@ stdenv.mkDerivation rec {
 
     # Preload extensions by moving into the runtime instead of storing under the
     # user's profile directory.
+    # See https://support.mozilla.org/en-US/kb/deploying-firefox-with-extensions
+    mkdir -p "$TBB_IN_STORE/distribution/extensions"
     mv "$TBB_IN_STORE/TorBrowser/Data/Browser/profile.default/extensions/"* \
-      "$TBB_IN_STORE/browser/extensions"
+      "$TBB_IN_STORE/distribution/extensions"
 
     # Hard-code paths to geoip data files.  TBB resolves the geoip files
     # relative to torrc-defaults_path but if we do not hard-code them
@@ -251,8 +242,11 @@ stdenv.mkDerivation rec {
     GeoIPv6File $TBB_IN_STORE/TorBrowser/Data/Tor/geoip6
     EOF
 
+    WRAPPER_LD_PRELOAD=${optionalString useHardenedMalloc
+      "${graphene-hardened-malloc}/lib/libhardened_malloc.so"}
+
     WRAPPER_XDG_DATA_DIRS=${concatMapStringsSep ":" (x: "${x}/share") [
-      gnome3.adwaita-icon-theme
+      gnome.adwaita-icon-theme
       shared-mime-info
     ]}
     WRAPPER_XDG_DATA_DIRS+=":"${concatMapStringsSep ":" (x: "${x}/share/gsettings-schemas/${x.name}") [
@@ -300,7 +294,8 @@ stdenv.mkDerivation rec {
 
     # Clear out some files that tend to capture store references but are
     # easily generated by firefox at startup.
-    rm -f "\$HOME/TorBrowser/Data/Browser/profile.default"/{compatibility.ini,extensions.ini,extensions.json}
+    rm -f "\$HOME/TorBrowser/Data/Browser/profile.default"/{addonStartup.json.lz4,compatibility.ini,extensions.ini,extensions.json}
+    rm -f "\$HOME/TorBrowser/Data/Browser/profile.default"/startupCache/*
 
     # XDG
     : "\''${XDG_RUNTIME_DIR:=/run/user/\$(id -u)}"
@@ -332,6 +327,8 @@ stdenv.mkDerivation rec {
     #
     # XDG_DATA_DIRS is set to prevent searching system dirs (looking for .desktop & icons)
     exec env -i \
+      LD_PRELOAD=$WRAPPER_LD_PRELOAD \
+      \
       TZ=":" \
       TZDIR="\''${TZDIR:-}" \
       LOCALE_ARCHIVE="\$LOCALE_ARCHIVE" \
@@ -375,7 +372,11 @@ stdenv.mkDerivation rec {
     cp $desktopItem/share/applications"/"* $out/share/applications
     sed -i $out/share/applications/torbrowser.desktop \
         -e "s,Exec=.*,Exec=$out/bin/tor-browser," \
-        -e "s,Icon=.*,Icon=web-browser,"
+        -e "s,Icon=.*,Icon=tor-browser,"
+    for i in 16 32 48 64 128; do
+      mkdir -p $out/share/icons/hicolor/''${i}x''${i}/apps/
+      ln -s $out/share/tor-browser/browser/chrome/icons/default/default$i.png $out/share/icons/hicolor/''${i}x''${i}/apps/tor-browser.png
+    done
 
     # Check installed apps
     echo "Checking bundled Tor ..."
@@ -386,12 +387,22 @@ stdenv.mkDerivation rec {
       $out/bin/tor-browser --version >/dev/null
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Tor Browser Bundle built by torproject.org";
-    longDescription = tor-browser-bundle.meta.longDescription;
+    longDescription = ''
+      Tor Browser Bundle is a bundle of the Tor daemon, Tor Browser (heavily patched version of
+      Firefox), several essential extensions for Tor Browser, and some tools that glue those
+      together with a convenient UI.
+
+      `tor-browser-bundle-bin` package is the official version built by torproject.org patched with
+      `patchelf` to work under nix and with bundled scripts adapted to the read-only nature of
+      the `/nix/store`.
+    '';
     homepage = "https://www.torproject.org/";
+    changelog = "https://gitweb.torproject.org/builders/tor-browser-build.git/plain/projects/tor-browser/Bundle-Data/Docs/ChangeLog.txt?h=maint-${version}";
     platforms = attrNames srcs;
-    maintainers = with maintainers; [ offline matejc doublec thoughtpolice joachifm ];
+    maintainers = with maintainers; [ offline matejc thoughtpolice joachifm hax404 cap KarlJoad ];
+    mainProgram = "tor-browser";
     hydraPlatforms = [];
     # MPL2.0+, GPL+, &c.  While it's not entirely clear whether
     # the compound is "libre" in a strict sense (some components place certain

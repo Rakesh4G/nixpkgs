@@ -1,4 +1,5 @@
-{ stdenv
+{ lib
+, stdenv
 , autoconf
 , automake
 , c-ares
@@ -6,8 +7,7 @@
 , curl
 , doxygen
 , fetchFromGitHub
-, ffmpeg
-, hicolor-icon-theme
+  #, ffmpeg
 , libmediainfo
 , libraw
 , libsodium
@@ -15,23 +15,25 @@
 , libuv
 , libzen
 , lsb-release
-, pkgconfig
-, qt5
+, mkDerivation
+, pkg-config
+, qtbase
+, qttools
+, qtx11extras
 , sqlite
 , swig
 , unzip
 , wget
 }:
-
-stdenv.mkDerivation rec {
-  name = "megasync-${version}";
-  version = "4.1.1.0";
+mkDerivation rec {
+  pname = "megasync";
+  version = "4.4.0.0";
 
   src = fetchFromGitHub {
     owner = "meganz";
     repo = "MEGAsync";
     rev = "v${version}_Linux";
-    sha256 = "0lc228q3s9xp78dxjn22g6anqlsy1hi7a6yfs4q3l6gyfc3qcxl2";
+    sha256 = "1xggca7283943070mmpsfhh7c9avy809h0kgmf7497f4ca5zkg2y";
     fetchSubmodules = true;
   };
 
@@ -39,28 +41,27 @@ stdenv.mkDerivation rec {
     autoconf
     automake
     doxygen
+    libtool
     lsb-release
-    pkgconfig
-    qt5.qmake
-    qt5.qttools
+    pkg-config
+    qttools
     swig
+    unzip
   ];
   buildInputs = [
     c-ares
     cryptopp
     curl
-    ffmpeg
-    hicolor-icon-theme
+    # temporarily disable until patched for ffmpeg 4.4
+    #ffmpeg
     libmediainfo
     libraw
     libsodium
-    libtool
     libuv
     libzen
-    qt5.qtbase
-    qt5.qtsvg
+    qtbase
+    qtx11extras
     sqlite
-    unzip
     wget
   ];
 
@@ -73,7 +74,7 @@ stdenv.mkDerivation rec {
   ];
 
   postPatch = ''
-    for file in $(find src/ -type f \( -iname configure -o -iname \*.sh  \) ); do
+    for file in $(find src/ -type f \( -iname configure -o -iname \*.sh \) ); do
       substituteInPlace "$file" --replace "/bin/bash" "${stdenv.shell}"
     done
   '';
@@ -87,21 +88,22 @@ stdenv.mkDerivation rec {
   '';
 
   configureFlags = [
-          "--disable-examples"
-          "--disable-java"
-          "--disable-php"
-          "--enable-chat"
-          "--with-cares"
-          "--with-cryptopp"
-          "--with-curl"
-          "--with-ffmpeg"
-          "--without-freeimage"  # unreferenced even when found
-          "--without-readline"
-          "--without-termcap"
-          "--with-sodium"
-          "--with-sqlite"
-          "--with-zlib"
-    ];
+    "--disable-examples"
+    "--disable-java"
+    "--disable-php"
+    "--enable-chat"
+    "--with-cares"
+    "--with-cryptopp"
+    "--with-curl"
+    # temporarily disable until patched for ffmpeg 4.4
+    #"--with-ffmpeg"
+    "--without-freeimage" # unreferenced even when found
+    "--without-readline"
+    "--without-termcap"
+    "--with-sodium"
+    "--with-sqlite"
+    "--with-zlib"
+  ];
 
   postConfigure = ''
     cd ../..
@@ -115,11 +117,12 @@ stdenv.mkDerivation rec {
     popd
   '';
 
-  meta = with stdenv.lib; {
-    description = "Easy automated syncing between your computers and your MEGA Cloud Drive";
-    homepage    = https://mega.nz/;
-    license     = licenses.unfree;
-    platforms   = [ "i686-linux" "x86_64-linux" ];
+  meta = with lib; {
+    description =
+      "Easy automated syncing between your computers and your MEGA Cloud Drive";
+    homepage = "https://mega.nz/";
+    license = licenses.unfree;
+    platforms = [ "i686-linux" "x86_64-linux" ];
     maintainers = [ maintainers.michojel ];
   };
 }

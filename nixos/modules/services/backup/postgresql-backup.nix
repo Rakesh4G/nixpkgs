@@ -35,17 +35,20 @@ let
 
 in {
 
+  imports = [
+    (mkRemovedOptionModule [ "services" "postgresqlBackup" "period" ] ''
+       A systemd timer is now used instead of cron.
+       The starting time can be configured via <literal>services.postgresqlBackup.startAt</literal>.
+    '')
+  ];
+
   options = {
     services.postgresqlBackup = {
-      enable = mkOption {
-        default = false;
-        description = ''
-          Whether to enable PostgreSQL dumps.
-        '';
-      };
+      enable = mkEnableOption "PostgreSQL dumps";
 
       startAt = mkOption {
         default = "*-*-* 01:15:00";
+        type = with types; either (listOf str) str;
         description = ''
           This option defines (see <literal>systemd.time</literal> for format) when the
           databases should be dumped.
@@ -68,6 +71,7 @@ in {
 
       databases = mkOption {
         default = [];
+        type = types.listOf types.str;
         description = ''
           List of database names to dump.
         '';
@@ -75,14 +79,15 @@ in {
 
       location = mkOption {
         default = "/var/backup/postgresql";
+        type = types.path;
         description = ''
           Location to put the gzipped PostgreSQL database dumps.
         '';
       };
 
       pgdumpOptions = mkOption {
-        type = types.string;
-        default = "-Cbo";
+        type = types.separatedString " ";
+        default = "-C";
         description = ''
           Command line options for pg_dump. This options is not used
           if <literal>config.services.postgresqlBackup.backupAll</literal> is enabled.

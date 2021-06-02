@@ -7,10 +7,11 @@
 let
   runtime_bins =  [ file unzip gzip ] ++ extraBackends;
 
-in stdenv.mkDerivation rec {
-  name = "unp-${version}";
+in stdenv.mkDerivation {
+  pname = "unp";
   version = "2.0-pre7";
-  buildInputs = [ perl makeWrapper ];
+  nativeBuildInputs = [ makeWrapper ];
+  buildInputs = [ perl ];
 
   src = fetchurl {
     # url = "http://http.debian.net/debian/pool/main/u/unp/unp_2.0~pre7+nmu1.tar.bz2";
@@ -19,7 +20,7 @@ in stdenv.mkDerivation rec {
     name = "unp_2.0_pre7+nmu1.tar.bz2";
   };
 
-  configurePhase = "true";
+  dontConfigure = true;
   buildPhase = "true";
   installPhase = ''
   mkdir -p $out/bin
@@ -34,9 +35,9 @@ in stdenv.mkDerivation rec {
     --prefix PATH : ${lib.makeBinPath runtime_bins}
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Command line tool for unpacking archives easily";
-    homepage = https://packages.qa.debian.org/u/unp.html;
+    homepage = "https://packages.qa.debian.org/u/unp.html";
     license = with licenses; [ gpl2 ];
     maintainers = [ maintainers.timor ];
     platforms = platforms.all;

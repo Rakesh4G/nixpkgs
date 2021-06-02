@@ -5,10 +5,10 @@
    for each package in a separate file: the call to the function would
    be almost as must code as the function itself. */
 
-{ fetchurl, stdenv, lua, unzip, pkgconfig
+{ fetchurl, stdenv, lua, unzip, pkg-config
 , pcre, oniguruma, gnulib, tre, glibc, sqlite, openssl, expat
 , autoreconfHook, gnum4
-, mysql, postgresql, cyrus_sasl
+, postgresql, cyrus_sasl
 , fetchFromGitHub, which, writeText
 , pkgs
 , lib
@@ -23,7 +23,7 @@ let
   isLua51 = (lib.versions.majorMinor lua.version) == "5.1";
   isLua52 = (lib.versions.majorMinor lua.version) == "5.2";
   isLua53 = lua.luaversion == "5.3";
-  isLuaJIT = (builtins.parseDrvName lua.name).name == "luajit";
+  isLuaJIT = lib.getName lua == "luajit";
 
   lua-setup-hook = callPackage ../development/interpreters/lua-5/setup-hook.nix { };
 
@@ -32,7 +32,7 @@ let
 
   callPackage = pkgs.newScope self;
 
-  requiredLuaModules = drvs: with stdenv.lib; let
+  requiredLuaModules = drvs: with lib; let
     modules =  filter hasLuaModule drvs;
   in unique ([lua] ++ modules ++ concatLists (catAttrs "requiredLuaModules" modules));
 
@@ -64,17 +64,18 @@ in
 with self; {
 
   getLuaPathList = majorVersion: [
-     "lib/lua/${majorVersion}/?.lua" "share/lua/${majorVersion}/?.lua"
-    "share/lua/${majorVersion}/?/init.lua" "lib/lua/${majorVersion}/?/init.lua"
+    "share/lua/${majorVersion}/?.lua"
+    "share/lua/${majorVersion}/?/init.lua"
   ];
   getLuaCPathList = majorVersion: [
-     "lib/lua/${majorVersion}/?.so" "share/lua/${majorVersion}/?.so" "share/lua/${majorVersion}/?/init.so"
+    "lib/lua/${majorVersion}/?.so"
   ];
 
   # helper functions for dealing with LUA_PATH and LUA_CPATH
-  getPath       = lib : type : "${lib}/lib/lua/${lua.luaversion}/?.${type};${lib}/share/lua/${lua.luaversion}/?.${type}";
-  getLuaPath    = lib : getPath lib "lua";
-  getLuaCPath   = lib : getPath lib "so";
+  getPath = drv: pathListForVersion:
+    lib.concatMapStringsSep ";" (path: "${drv}/${path}") (pathListForVersion lua.luaversion);
+  getLuaPath = drv: getPath drv getLuaPathList;
+  getLuaCPath = drv: getPath drv getLuaCPathList;
 
   #define build lua package function
   buildLuaPackage = callPackage ../development/lua-modules/generic {
@@ -107,7 +108,7 @@ with self; {
       sha256 = "1hvwslc25q7k82rxk461zr1a2041nxg7sn3sw3w0y5jxf0giz2pz";
     };
 
-    nativeBuildInputs = [ which pkgconfig ];
+    nativeBuildInputs = [ which pkg-config ];
 
     postPatch = ''
       patchShebangs .
@@ -122,7 +123,7 @@ with self; {
         );
     '';
 
-    meta = with stdenv.lib; {
+    meta = with lib; {
       description = "Lightweight UNIX I/O and POSIX binding for Lua";
       homepage = "https://www.gitano.org.uk/luxio/";
       license = licenses.mit;
@@ -132,14 +133,14 @@ with self; {
   };
 
   vicious = toLuaModule(stdenv.mkDerivation rec {
-    name = "vicious-${version}";
-    version = "2.3.1";
+    pname = "vicious";
+    version = "2.5.0";
 
     src = fetchFromGitHub {
       owner = "Mic92";
       repo = "vicious";
       rev = "v${version}";
-      sha256 = "1yzhjn8rsvjjsfycdc993ms6jy2j5jh7x3r2ax6g02z5n0anvnbx";
+      sha256 = "0lb90334mz0my8ydsmnsnkki0xr58kinsg0hf9d6k4b0vjfi0r0a";
     };
 
     buildInputs = [ lua ];
@@ -150,9 +151,9 @@ with self; {
       printf "package.path = '$out/lib/lua/${lua.luaversion}/?/init.lua;' ..  package.path\nreturn require((...) .. '.init')\n" > $out/lib/lua/${lua.luaversion}/vicious.lua
     '';
 
-    meta = with stdenv.lib; {
+    meta = with lib; {
       description = "A modular widget library for the awesome window manager";
-      homepage    = https://github.com/Mic92/vicious;
+      homepage    = "https://github.com/Mic92/vicious";
       license     = licenses.gpl2;
       maintainers = with maintainers; [ makefu mic92 ];
       platforms   = platforms.linux;

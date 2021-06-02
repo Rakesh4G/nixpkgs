@@ -1,9 +1,8 @@
-{ stdenv, buildPythonPackage, fetchPypi, numpy, scipy, six, decorator }:
+{ lib, buildPythonPackage, fetchPypi, numpy, scipy, six, decorator, nose }:
 
 buildPythonPackage rec {
   pname = "paramz";
   version = "0.9.5";
-  name  = "${pname}-${version}";
 
   src = fetchPypi {
     inherit pname version;
@@ -11,10 +10,16 @@ buildPythonPackage rec {
   };
 
   propagatedBuildInputs = [ numpy scipy six decorator ];
+  checkInputs = [ nose ];
 
-  meta = with stdenv.lib; {
+  # Ran 113 tests in 3.082s
+  checkPhase = ''
+      nosetests -v paramz/tests
+  '';
+
+  meta = with lib; {
     description = "Parameterization framework for parameterized model creation and handling";
-    homepage = https://github.com/sods/paramz;
+    homepage = "https://github.com/sods/paramz";
     license = licenses.bsd3;
     maintainers = with maintainers; [ bcdarwin ];
   };

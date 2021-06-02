@@ -1,20 +1,21 @@
-{ stdenv, makeDesktopItem, fetchurl, unzip
-, gdk_pixbuf, glib, gtk3, atk, at-spi2-atk, pango, cairo, freetype, fontconfig, dbus, nss, nspr, alsaLib, cups, expat, udev, gnome3
-, xorg, mozjpeg, makeWrapper, wrapGAppsHook, hicolor-icon-theme, libuuid
+{ lib, stdenv, makeDesktopItem, fetchurl, unzip
+, gdk-pixbuf, glib, gtk3, atk, at-spi2-atk, pango, cairo, freetype, fontconfig, dbus, nss, nspr, alsaLib, cups, expat, udev, gnome
+, xorg, mozjpeg, makeWrapper, wrapGAppsHook, libuuid, at-spi2-core, libdrm, mesa, libxkbcommon
 }:
 
 stdenv.mkDerivation rec {
-  name = "avocode-${version}";
-  version = "3.8.1";
+  pname = "avocode";
+  version = "4.14.0";
 
   src = fetchurl {
     url = "https://media.avocode.com/download/avocode-app/${version}/avocode-${version}-linux.zip";
-    sha256 = "1akrrnv0ajzvbhflbpmh4ckcqfqrgdjqfp6d4jqvspqi56zmsr83";
+    sha256 = "sha256-BDW87UVN1Jub0sJFvtkZr5ssz835Yf2CNn5kHCn70cE=";
   };
 
-  libPath = stdenv.lib.makeLibraryPath (with xorg; [
+  libPath = lib.makeLibraryPath (with xorg; [
     stdenv.cc.cc.lib
-    gdk_pixbuf
+    at-spi2-core.out
+    gdk-pixbuf
     glib
     gtk3
     atk
@@ -32,6 +33,8 @@ stdenv.mkDerivation rec {
     udev
     libX11
     libxcb
+    libxshmfence
+    libxkbcommon
     libXi
     libXcursor
     libXdamage
@@ -43,6 +46,8 @@ stdenv.mkDerivation rec {
     libXtst
     libXScrnSaver
     libuuid
+    libdrm
+    mesa
   ]);
 
   desktopItem = makeDesktopItem {
@@ -51,12 +56,12 @@ stdenv.mkDerivation rec {
     icon = "avocode";
     desktopName = "Avocode";
     genericName = "Design Inspector";
-    categories = "Application;Development;";
+    categories = "Development;";
     comment = "The bridge between designers and developers";
   };
 
-  nativeBuildInputs = [makeWrapper wrapGAppsHook];
-  buildInputs = [ unzip gtk3 gnome3.adwaita-icon-theme hicolor-icon-theme ];
+  nativeBuildInputs = [makeWrapper wrapGAppsHook unzip];
+  buildInputs = [ gtk3 gnome.adwaita-icon-theme ];
 
   # src is producing multiple folder on unzip so we must
   # override unpackCmd to extract it into newly created folder
@@ -91,8 +96,8 @@ stdenv.mkDerivation rec {
 
   enableParallelBuilding = true;
 
-  meta = with stdenv.lib; {
-    homepage = https://avocode.com/;
+  meta = with lib; {
+    homepage = "https://avocode.com/";
     description = "The bridge between designers and developers";
     license = licenses.unfree;
     platforms = platforms.linux;

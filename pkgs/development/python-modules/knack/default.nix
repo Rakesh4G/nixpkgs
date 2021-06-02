@@ -1,11 +1,9 @@
-{ stdenv
-, lib
+{ lib
 , buildPythonPackage
 , fetchPypi
 , argcomplete
 , colorama
 , jmespath
-, knack
 , pygments
 , pyyaml
 , six
@@ -17,11 +15,11 @@
 
 buildPythonPackage rec {
   pname = "knack";
-  version = "0.6.2";
+  version = "0.8.0";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "1kxxj9m2mvva9rz11m6pgdg0mi712d28faj4633rl23qa53sh7i8";
+    sha256 = "16aa47240add6badd933a0b27576f3c090d7469177dc941e3ece05ca88123199";
   };
 
   propagatedBuildInputs = [
@@ -40,13 +38,12 @@ buildPythonPackage rec {
     pytest
   ];
 
-  # tries to make a '/homeless-shelter' dir
   checkPhase = ''
-    pytest -k 'not test_cli_exapp1'
+    HOME=$TMPDIR pytest .
   '';
 
   meta = with lib; {
-    homepage = https://github.com/microsoft/knack;
+    homepage = "https://github.com/microsoft/knack";
     description = "A Command-Line Interface framework";
     platforms = platforms.all;
     license = licenses.mit;

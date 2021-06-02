@@ -1,4 +1,20 @@
-{ stdenv, fetchFromGitHub, pantheon, pkgconfig, cmake, ninja, gtk3, gtksourceview3, webkitgtk, gtkspell3, glib, libgee, sqlite, discount, wrapGAppsHook
+{ lib, stdenv
+, fetchFromGitHub
+, nix-update-script
+, pantheon
+, pkg-config
+, vala_0_46
+, cmake
+, ninja
+, gtk3
+, gtksourceview3
+, webkitgtk
+, gtkspell3
+, glib
+, libgee
+, sqlite
+, discount
+, wrapGAppsHook
 , withPantheon ? false }:
 
 stdenv.mkDerivation rec {
@@ -15,8 +31,9 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [
     cmake
     ninja
-    pantheon.vala
-    pkgconfig
+    # fails with newer vala: https://github.com/Philip-Scott/Notes-up/issues/349
+    vala_0_46
+    pkg-config
     wrapGAppsHook
   ];
 
@@ -33,14 +50,20 @@ stdenv.mkDerivation rec {
   ];
 
   # Whether to build with contractor support (Pantheon specific)
-  cmakeFlags = if withPantheon then null else [ "-Dnoele=yes" ];
+  cmakeFlags = lib.optional (!withPantheon) "-Dnoele=yes";
 
-  meta = with stdenv.lib; {
+  passthru = {
+    updateScript = nix-update-script {
+      attrPath = pname;
+    };
+  };
+
+  meta = with lib; {
     description = "Markdown notes editor and manager designed for elementary OS"
-    + stdenv.lib.optionalString withPantheon " - built with Contractor support";
-    homepage = https://github.com/Philip-Scott/Notes-up;
+    + lib.optionalString withPantheon " - built with Contractor support";
+    homepage = "https://github.com/Philip-Scott/Notes-up";
     license = licenses.gpl2;
-    maintainers = with maintainers; [ davidak worldofpeace ];
+    maintainers = with maintainers; [ davidak ];
     platforms = platforms.linux;
   };
 }

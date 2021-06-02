@@ -1,22 +1,36 @@
-{ lib, fetchFromGitHub, buildDunePackage
-, core, lwt ? ocaml_lwt, ocaml_lwt, ocamlgraph, rresult, tyxml
+{ lib, fetchFromGitHub, fetchpatch, buildDunePackage
+, base64, bos, core, lwt_react, ocamlgraph, rresult, tyxml
 }:
 
 buildDunePackage rec {
   pname = "bistro";
-  version = "0.4.0";
+  version = "0.5.0";
+
+  useDune2 = true;
+
   src = fetchFromGitHub {
     owner = "pveber";
     repo = pname;
     rev = "v${version}";
-    sha256 = "0bxnggm4nkyl2iqwj4f5afw8lj5miq2rqsc9qfrlmg4g4rr3zh1c";
+    sha256 = "114gq48cpj2mvycypa9lfyqqb26wa2gkdfwkcqhnx7m6sdwv9a38";
   };
 
-  buildInputs = [ lwt ocamlgraph rresult tyxml ];
+  patches = [
+  # The following patch adds support for core.v0.13
+  (fetchpatch {
+    url = "https://github.com/pveber/bistro/commit/0931db43a146ad7829dff5120161a775f732a878.patch";
+    sha256 = "06y0sxbbab1mssc1xfjjv12lpv4rny5iqv9qkdqyzrvzpl1bdvnd";
+  })
+  # The following patch adds support for core.v0.14
+  (fetchpatch {
+    url = "https://github.com/pveber/bistro/commit/afbdcb2af7777ef7711c7f3c45dff605350a27b2.patch";
+    sha256 = "0ix6lx9qjnn3vqp0164c6l5an8b4rq69h2mxrg89piyk2g1yv0zg";
+  })
+  ];
 
-  propagatedBuildInputs = [ core ];
+  propagatedBuildInputs = [ base64 bos core lwt_react ocamlgraph rresult tyxml ];
 
-  minimumOCamlVersion = "4.04";
+  minimumOCamlVersion = "4.08";
 
   meta = {
     inherit (src.meta) homepage;

@@ -1,8 +1,8 @@
-{ stdenv
+{ lib, stdenv
 , fetchurl
 , meson
 , ninja
-, pkgconfig
+, pkg-config
 , pixman
 , alsaLib
 , openssl
@@ -46,7 +46,7 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [
     meson
     ninja
-    pkgconfig
+    pkg-config
     spice-protocol
     python3
     python3.pkgs.six
@@ -77,7 +77,6 @@ stdenv.mkDerivation rec {
   NIX_CFLAGS_COMPILE = "-fno-stack-protector";
 
   mesonFlags = [
-    "-Dauto_features=enabled"
     "-Dgstreamer=1.0"
     "-Dcelt051=disabled"
   ];
@@ -86,7 +85,7 @@ stdenv.mkDerivation rec {
     ln -s spice-server $out/include/spice
   '';
 
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Complete open source solution for interaction with virtualized desktop devices";
     longDescription = ''
       The Spice project aims to provide a complete open source solution for interaction
@@ -95,7 +94,7 @@ stdenv.mkDerivation rec {
       VD-Interfaces. The VD-Interfaces (VDI) enable both ends of the solution to be easily
       utilized by a third-party component.
     '';
-    homepage = https://www.spice-space.org/;
+    homepage = "https://www.spice-space.org/";
     license = licenses.lgpl21;
 
     maintainers = [ maintainers.bluescreen303 ];

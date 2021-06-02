@@ -1,4 +1,4 @@
-{ stdenv
+{ lib, stdenv
 , fetchFromGitHub
 , cmake
 , libyamlcpp
@@ -6,27 +6,26 @@
 }:
 
 stdenv.mkDerivation rec {
-  version = "1.0.20190410";
-  name = "dcm2niix-${version}";
+  version = "1.0.20210317";
+  pname = "dcm2niix";
 
   src = fetchFromGitHub {
     owner = "rordenlab";
     repo = "dcm2niix";
     rev = "v${version}";
-    sha256 = "1prwpvbi76xlpkhc4kadjhyyx0s71cs30hi6anknhfm6hdyd26ms";
+    sha256 = "05rjk0xsrzcxa979vlx25k1rdz1in84gkfm9l1h9f7k4a4aa5r6j";
   };
 
-  enableParallelBuilding = true;
   nativeBuildInputs = [ cmake git ];
   buildInputs = [ libyamlcpp ];
 
-  meta = with stdenv.lib; {
-    description = "dcm2niix DICOM to NIfTI converter";
+  meta = with lib; {
+    description = "DICOM to NIfTI converter";
     longDescription = ''
       dcm2niix is a designed to convert neuroimaging data from the
       DICOM format to the NIfTI format.
     '';
-    homepage = https://www.nitrc.org/projects/dcm2nii;
+    homepage = "https://www.nitrc.org/projects/dcm2nii";
     license = licenses.bsd3;
     maintainers = [ maintainers.ashgillman ];
     platforms = platforms.all;

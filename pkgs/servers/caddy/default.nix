@@ -1,30 +1,26 @@
-{ stdenv, buildGoModule, fetchFromGitHub }:
+{ lib, buildGoModule, fetchFromGitHub, nixosTests }:
 
 buildGoModule rec {
-  name = "caddy-${version}";
-  version = "1.0.0";
+  pname = "caddy";
+  version = "2.4.1";
 
-  goPackagePath = "github.com/mholt/caddy";
-
-  subPackages = [ "caddy" ];
+  subPackages = [ "cmd/caddy" ];
 
   src = fetchFromGitHub {
-    owner = "mholt";
-    repo = "caddy";
+    owner = "caddyserver";
+    repo = pname;
     rev = "v${version}";
-    sha256 = "08hknms0lg5c6yhkz9g1i32d11xch2kqkjbk4w4kd1f1xpa6jvmz";
+    sha256 = "sha256-Wc7eNw5FZWoUT6IP84NhROC59bf4/RCw/gOWLuYI2dc=";
   };
-  modSha256 = "02cb3swc180kh5vc2s5w8a6vidvw768l9bv5zg8zya183wzvfczs";
 
-  buildFlagsArray = ''
-    -ldflags=
-      -X github.com/mholt/caddy/caddy/caddymain.gitTag=v${version}
-  '';
+  vendorSha256 = "sha256-ZOrhR03m+cs+mTQio3qEIf+1B0IP0i2+x+vcml5AMco=";
 
-  meta = with stdenv.lib; {
-    homepage = https://caddyserver.com;
+  passthru.tests = { inherit (nixosTests) caddy; };
+
+  meta = with lib; {
+    homepage = "https://caddyserver.com";
     description = "Fast, cross-platform HTTP/2 web server with automatic HTTPS";
     license = licenses.asl20;
-    maintainers = with maintainers; [ rushmorem fpletz zimbatm ];
+    maintainers = with maintainers; [ Br1ght0ne ];
   };
 }

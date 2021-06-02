@@ -1,41 +1,64 @@
-{ stdenv, fetchFromGitHub, lib, bzip2, cmake, gflags, lz4, snappy, zlib, zstd, enableLite ? false }:
+{ lib, stdenv
+, fetchFromGitHub
+, fetchpatch
+, cmake
+, ninja
+, bzip2
+, lz4
+, snappy
+, zlib
+, zstd
+, enableJemalloc ? false, jemalloc
+, enableLite ? false
+, enableShared ? !stdenv.hostPlatform.isStatic
+}:
 
 stdenv.mkDerivation rec {
   pname = "rocksdb";
-  version = "6.1.2";
+  version = "6.17.3";
 
   src = fetchFromGitHub {
     owner = "facebook";
     repo = pname;
     rev = "v${version}";
-    sha256 = "0gy2zjga3r8k9pbn2b0b5fzv4m0h2ip3zmyja1i7fli9n56civ3y";
+    sha256 = "sha256-mfONfYMxZ3CT7Bk3OYSwg0UChmk4mQ1+cHN94gEDZcM=";
   };
 
-  nativeBuildInputs = [ cmake ];
-  buildInputs = [ bzip2 gflags lz4 snappy zlib zstd ];
+  nativeBuildInputs = [ cmake ninja ];
 
-  patches = [ ./0001-findzlib.patch ];
+  propagatedBuildInputs = [ bzip2 lz4 snappy zlib zstd ];
+
+  buildInputs = lib.optional enableJemalloc jemalloc;
+
+  NIX_CFLAGS_COMPILE = lib.optionalString stdenv.cc.isGNU "-Wno-error=deprecated-copy -Wno-error=pessimizing-move";
 
   cmakeFlags = [
     "-DPORTABLE=1"
-    "-DWITH_JEMALLOC=0"
+    "-DWITH_JEMALLOC=${if enableJemalloc then "1" else "0"}"
     "-DWITH_JNI=0"
-    "-DWITH_TESTS=0"
+    "-DWITH_BENCHMARK_TOOLS=0"
+    "-DWITH_TESTS=1"
     "-DWITH_TOOLS=0"
     "-DWITH_BZ2=1"
     "-DWITH_LZ4=1"
     "-DWITH_SNAPPY=1"
     "-DWITH_ZLIB=1"
     "-DWITH_ZSTD=1"
+    "-DWITH_GFLAGS=0"
+    "-DUSE_RTTI=1"
+    "-DROCKSDB_INSTALL_ON_WINDOWS=YES" # harmless elsewhere
     (lib.optional
-        (stdenv.hostPlatform.system == "i686-linux"
-         || stdenv.hostPlatform.system == "x86_64-linux")
+        (stdenv.hostPlatform.isx86 && stdenv.hostPlatform.isLinux)
         "-DFORCE_SSE42=1")
     (lib.optional enableLite "-DROCKSDB_LITE=1")
-  ];
+    "-DFAIL_ON_WARNINGS=${if stdenv.hostPlatform.isMinGW then "NO" else "YES"}"
+  ] ++ lib.optional (!enableShared) "-DROCKSDB_BUILD_SHARED=0";
 
-  meta = with stdenv.lib; {
-    homepage = https://rocksdb.org;
+  # otherwise "cc1: error: -Wformat-security ignored without -Wformat [-Werror=format-security]"
+  hardeningDisable = lib.optional stdenv.hostPlatform.isWindows "format";
+
+  meta = with lib; {
+    homepage = "https://rocksdb.org";
     description = "A library that provides an embeddable, persistent key-value store for fast storage";
     license = licenses.asl20;
     maintainers = with maintainers; [ adev magenbluten ];

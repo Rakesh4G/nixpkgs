@@ -1,16 +1,14 @@
-{ stdenv
-, lib
+{ lib, stdenv
 , fetchFromGitHub
 
 , cmake
 , gettext
 , wrapGAppsHook
-, pkgconfig
+, pkg-config
 
 , glib
 , gsettings-desktop-schemas
 , gtk3
-, hicolor-icon-theme
 , libsndfile
 , libxml2
 , libzip
@@ -23,22 +21,21 @@
 }:
 
 stdenv.mkDerivation rec {
-  name = "xournalpp-${version}";
-  version = "1.0.12";
+  pname = "xournalpp";
+  version = "1.0.20";
 
   src = fetchFromGitHub {
     owner = "xournalpp";
-    repo = "xournalpp";
+    repo = pname;
     rev = version;
-    sha256 = "0yg70hsx58s3wb5kzccivrqa7kvmdapygxmif1j64hddah2rqcn9";
+    sha256 = "1c7n03xm3m4lwcwxgplkn25i8c6s3i7rijbkcx86br1j4jadcs3k";
   };
 
-  nativeBuildInputs = [ cmake gettext pkgconfig wrapGAppsHook ];
+  nativeBuildInputs = [ cmake gettext pkg-config wrapGAppsHook ];
   buildInputs =
     [ glib
       gsettings-desktop-schemas
       gtk3
-      hicolor-icon-theme
       libsndfile
       libxml2
       libzip
@@ -49,15 +46,15 @@ stdenv.mkDerivation rec {
     ]
     ++ lib.optional withLua lua;
 
+  buildFlags = "translations";
+
   hardeningDisable = [ "format" ];
 
-  enableParallelBuilding = true;
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "Xournal++ is a handwriting Notetaking software with PDF annotation support";
-    homepage    = https://github.com/xournalpp/xournalpp;
-    license     = licenses.gpl2;
-    maintainers = with maintainers; [ andrew-d ];
+    homepage    = "https://xournalpp.github.io/";
+    license     = licenses.gpl2Plus;
+    maintainers = with maintainers; [ andrew-d sikmir ];
     platforms   = platforms.linux;
   };
 }

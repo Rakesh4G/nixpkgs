@@ -1,38 +1,51 @@
 { lib
 , buildPythonPackage
-, fetchPypi
+, fetchFromGitHub
 , isPy3k
 , xmltodict
-, requests
 , ifaddr
+, requests
 
-# Test dependencies
-, pytest_3, pylint, flake8, graphviz
-, mock, sphinx, sphinx_rtd_theme
+  # Test dependencies
+, pytestCheckHook
+, mock
+, requests-mock
 }:
 
 buildPythonPackage rec {
   pname = "pysonos";
-  version = "0.0.14";
+  version = "0.0.50";
 
   disabled = !isPy3k;
 
-  src = fetchPypi {
-    inherit pname version;
-    sha256 = "6ebab661eb3ff9f814139924c18a87d0b1cab8a6af98d323e2b1ee313ed856c9";
+  # pypi package is missing test fixtures
+  src = fetchFromGitHub {
+    owner = "amelchio";
+    repo = pname;
+    rev = "v${version}";
+    sha256 = "sha256-iyFdT+RH2dtMtD+jSLFuAVE1DIQn6k9ONLOXNFhpuHs=";
   };
 
-  propagatedBuildInputs = [ xmltodict requests ifaddr ];
-
-  checkInputs = [
-    pytest_3 pylint flake8 graphviz
-    mock sphinx sphinx_rtd_theme
+  propagatedBuildInputs = [
+    ifaddr
+    requests
+    xmltodict
   ];
 
-  meta = {
-    homepage = https://github.com/amelchio/pysonos;
+  checkInputs = [
+    pytestCheckHook
+    mock
+    requests-mock
+  ];
+
+  disabledTests = [
+    "test_desc_from_uri" # test requires network access
+  ];
+
+  meta = with lib; {
     description = "A SoCo fork with fixes for Home Assistant";
-    license = lib.licenses.mit;
-    maintainers = with lib.maintainers; [ juaningan ];
+    homepage = "https://github.com/amelchio/pysonos";
+    license = licenses.mit;
+    maintainers = with maintainers; [ juaningan ];
   };
 }

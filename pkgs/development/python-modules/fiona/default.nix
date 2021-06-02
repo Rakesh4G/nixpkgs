@@ -1,19 +1,20 @@
-{ stdenv, buildPythonPackage, fetchPypi, isPy3k, pythonOlder
+{ stdenv, lib, buildPythonPackage, fetchPypi, isPy3k, pythonOlder
 , attrs, click, cligj, click-plugins, six, munch, enum34
-, pytest, boto3, mock
+, pytestCheckHook, boto3, mock, giflib, pytz
 , gdal
+, certifi
 }:
 
 buildPythonPackage rec {
   pname = "Fiona";
-  version = "1.8.6";
+  version = "1.8.19";
 
   src = fetchPypi {
     inherit pname version;
-    sha256 = "0gpvdrayam4qvpqvz0911nlyvf7ib3slsyml52qx172vhpldycgs";
+    sha256 = "b9059e0b29c2e9e6b817e53f941e77e1aca7075f986005d38db307067b60458f";
   };
 
-  CXXFLAGS = stdenv.lib.optionalString stdenv.cc.isClang "-std=c++11";
+  CXXFLAGS = lib.optionalString stdenv.cc.isClang "-std=c++11";
 
   nativeBuildInputs = [
     gdal # for gdal-config
@@ -21,33 +22,36 @@ buildPythonPackage rec {
 
   buildInputs = [
     gdal
-  ];
+  ] ++ lib.optionals stdenv.cc.isClang [ giflib ];
 
   propagatedBuildInputs = [
     attrs
+    certifi
     click
     cligj
     click-plugins
     six
     munch
-  ] ++ stdenv.lib.optional (!isPy3k) enum34;
+    pytz
+  ] ++ lib.optional (!isPy3k) enum34;
 
   checkInputs = [
-    pytest
+    pytestCheckHook
     boto3
-  ] ++ stdenv.lib.optional (pythonOlder "3.4") mock;
+  ] ++ lib.optional (pythonOlder "3.4") mock;
 
-  checkPhase = ''
+  preCheck = ''
     rm -r fiona # prevent importing local fiona
-    # Some tests access network, others test packaging
-    pytest -k "not test_*_http \
-           and not test_*_https \
-           and not test_*_wheel"
   '';
 
-  meta = with stdenv.lib; {
+  disabledTests = [
+    # Some tests access network, others test packaging
+    "http" "https" "wheel"
+  ];
+
+  meta = with lib; {
     description = "OGR's neat, nimble, no-nonsense API for Python";
-    homepage = http://toblerity.org/fiona/;
+    homepage = "https://fiona.readthedocs.io/";
     license = licenses.bsd3;
     maintainers = with maintainers; [ knedlsepp ];
   };

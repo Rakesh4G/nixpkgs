@@ -8,6 +8,7 @@ in {
   options = {
     services.localtime = {
       enable = mkOption {
+        type = types.bool;
         default = false;
         description = ''
           Enable <literal>localtime</literal>, simple daemon for keeping the system
@@ -22,18 +23,21 @@ in {
   config = mkIf cfg.enable {
     services.geoclue2 = {
       enable = true;
-      appConfig."localtime" = {
+      appConfig.localtime = {
         isAllowed = true;
         isSystem = true;
       };
     };
 
-    # We use the 'out' output, since localtime has its 'bin' output
-    # first, so that is what we get if we use the derivation bare.
     # Install the polkit rules.
-    environment.systemPackages = [ pkgs.localtime.out ];
+    environment.systemPackages = [ pkgs.localtime ];
     # Install the systemd unit.
-    systemd.packages = [ pkgs.localtime.out ];
+    systemd.packages = [ pkgs.localtime ];
+
+    users.users.localtimed = {
+      description = "localtime daemon";
+      isSystemUser = true;
+    };
 
     systemd.services.localtime = {
       wantedBy = [ "multi-user.target" ];

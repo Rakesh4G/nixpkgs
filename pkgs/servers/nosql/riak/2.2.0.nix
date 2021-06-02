@@ -25,11 +25,13 @@ let
   };
 in
 
-stdenv.mkDerivation rec {
-  name = "riak-2.2.0";
+stdenv.mkDerivation {
+  pname = "riak";
+  version = "2.2.0";
 
+  nativeBuildInputs = [ unzip ];
   buildInputs = [
-    which unzip erlang pam
+    which erlang pam
   ];
 
   src = srcs.riak;
